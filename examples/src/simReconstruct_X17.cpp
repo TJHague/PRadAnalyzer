@@ -99,7 +99,7 @@ void simReconstruct(TChain *tch, const char *outf)
     t->Branch("Hit.Z", hZ, "Hit.Z[Hit.N]/D");
     t->Branch("Hit.E", hE, "Hit.E[Hit.N]/D");
     t->Branch("Hit.CID", CID, "Hit.CID[Hit.N]/I");
-    t->Branch("Hit.match", match, "Hit.match[Hit.N]/I");
+    t->Branch("Hit.Match", match, "Hit.Match[Hit.N]/I");
 
     // setup hycal
     PRadHyCalSystem hycal("config/hycal.conf");
@@ -121,6 +121,20 @@ void simReconstruct(TChain *tch, const char *outf)
 
     PRadBenchMark timer;
     Point target_point = Point(0., 0., target_center);
+
+    std::vector<std::string> first_layer = {"W526", "W527", "W528", "W529",
+                                            "W560", "W563",
+                                            "W594", "W597",
+                                            "W628", "W629", "W630", "W631"};
+    std::vector<std::string> second_layer = {"W491", "W492", "W493", "W494", "W495", "W496",
+                                            "W525", "W530",
+                                            "W559", "W564",
+                                            "W593", "W598",
+                                            "W627", "W632",
+                                            "W661", "W662", "W663", "W664", "W665", "W666"};
+    std::vector<PRadHyCalModule*> turnedoffs;
+    for (auto &name : first_layer) { turnedoffs.push_back(hycal.GetModule(name)); }
+    for (auto &name : second_layer) { turnedoffs.push_back(hycal.GetModule(name)); }
     // loop over all events
     for (int i = 0; i < tch->GetEntries(); ++i) {
         if ((i + 1) % PROGRESS_COUNT == 0) {
@@ -134,9 +148,11 @@ void simReconstruct(TChain *tch, const char *outf)
         for (size_t k = 0; k < mlist.size(); ++k) {
             setModuleEnergy(*mlist[k], medep[k]);
         }
+        for (auto turnedoff : turnedoffs) {
+            setModuleEnergy(*turnedoff, 0.);
+        }
 
         hycal.Reconstruct();
-
         // match hits
         auto &hyhits = hycal_det->GetHits();
         Nhits = hyhits.size();
@@ -144,8 +160,13 @@ void simReconstruct(TChain *tch, const char *outf)
             auto &hit = hyhits[j];
             CID[j] = hit.cid;
             hE[j] = hit.E;
-            Point hpos(hit.x, hit.y, hit.z + hycal_pwo_surf);
+            hX[j] = hit.x;
+            hY[j] = hit.y;
+            hZ[j] = hit.z;
             match[j] = 0;
+/*
+            match[j] = 0;
+            Point hpos(hit.x, hit.y, hit.z + hycal_pwo_surf);
             double best_dist = 1000.;
             Point best_match = hpos;
 
@@ -165,6 +186,7 @@ void simReconstruct(TChain *tch, const char *outf)
             hX[j] = best_match.x;
             hY[j] = best_match.y;
             hZ[j] = best_match.z;
+*/
         }
         t->Fill();
     }
