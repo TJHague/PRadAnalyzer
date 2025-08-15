@@ -10,6 +10,7 @@
 #include <cstdint>
 #include "generalstruct.h"
 #include "datastruct.h"
+#include "PRadCoordSystem.h"
 
 // some discriminator related settings
 #define REF_CHANNEL 7
@@ -663,6 +664,7 @@ class MatchHit : public BaseHit
 {
 public:
     HyCalHit hycal;
+    GEMMatch gems;
     GEMHit gem;
     std::vector<GEMHit> gem1;
     std::vector<GEMHit> gem2;
@@ -670,6 +672,10 @@ public:
     // this index is kept because of example/physCalib is using it
     // TODO revamp physCalib and remove this member
     uint32_t hycal_idx;
+
+    MatchHit(const HyCalHit& hit, const GEMMatch& gem)
+        : hycal(hit), gems(gem), mflag(gems.GetNGEMHits() > 0 ? 1 : 0), hycal_idx(0)
+    {}
 
     MatchHit(const HyCalHit &hit)
     : BaseHit(hit.x, hit.y, hit.z, hit.E), hycal(hit), mflag(0)
@@ -688,6 +694,61 @@ public:
         x = h.x;
         y = h.y;
         z = h.z;
+    }
+};
+
+class GEMMatch : public BaseHit
+{
+private:
+    int nGEMHits;
+public:
+    GEMHit gem_hit1;
+    GEMHit gem_hit2;
+    GEMHit gem_hit3;
+    GEMHit gem_hit4;
+
+    GEMMatch()
+        : BaseHit(), gem_hit1(), gem_hit2(), gem_hit3(), gem_hit4(), nGEMHits(0)
+    {
+    }
+
+    GEMMatch(const GEMHit &g1)
+    : BaseHit(g1.x, g1.y, g1.z, 0), gem_hit1(g1), gem_hit2(), gem_hit3(), gem_hit4()
+    {}
+
+    GEMMatch(const GEMHit &g1, const GEMHit &g2)
+    : BaseHit(g2.x, g2.y, g2.z, 0), gem_hit1(g1), gem_hit2(g2), gem_hit3(), gem_hit4()
+    {}
+
+    GEMMatch(const GEMHit &g1, const GEMHit &g2, const GEMHit &g3)
+    : BaseHit(g2.x, g2.y, g2.z, 0), gem_hit1(g1), gem_hit2(g2), gem_hit3(g3), gem_hit4()
+    {}
+
+    GEMMatch(const GEMHit &g1, const GEMHit &g2, const GEMHit &g3, const GEMHit &g4)
+    : BaseHit(g2.x, g2.y, g2.z, 0), gem_hit1(g1), gem_hit2(g2), gem_hit3(g3), gem_hit4(g4)
+    {}
+
+    Point ProjectTo(double z) const {
+        // Find best fit line through all hits using least squares
+        double sum_xz = 0, sum_yz = 0, sum_x=0, sum_y=0, sum_z=0, sum_x2=0, sum_y2=0;
+        for(int i=0; i<nGEMHits; i++) {
+            const GEMHit& hit = (i == 0) ? gem_hit1 : (i == 1) ? gem_hit2 : (i == 2) ? gem_hit3 : gem_hit4;
+            sum_xz += hit.x * hit.z;
+            sum_yz += hit.y * hit.z;
+            sum_x += hit.x;
+            sum_y += hit.y;
+            sum_z += hit.z;
+            sum_x2 += hit.x * hit.x;
+            sum_y2 += hit.y * hit.y;
+        }
+
+        double dxdz = (nGEMHits * sum_xz - sum_x * sum_z) / (nGEMHits * sum_z * sum_z - sum_z * sum_z);
+        double dydz = (nGEMHits * sum_yz - sum_y * sum_z) / (nGEMHits * sum_z * sum_z - sum_z * sum_z);
+        double bx = (sum_z - dxdz * sum_x) / nGEMHits;
+        double by = (sum_z - dydz * sum_y) / nGEMHits;
+        double x_proj = dxdz * z + bx;
+        double y_proj = dydz * z + by;
+        return Point(x_proj, y_proj, z);
     }
 };
 

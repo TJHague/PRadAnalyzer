@@ -26,6 +26,13 @@ public:
     bool PreMatch(const HyCalHit &h, const GEMHit &g) const;
     void PostMatch(MatchHit &h) const;
 
+    // Old matching algorithm causes an excess of fake matches
+    //   in the GEM overlap region. E. Wrightson wrote an 
+    //   algorithm that fixes this during analysis of sims.
+    //   Merging into PRadAnalyzer - T.J. Hague Oct. 2024
+    void PreMatchGEMs(const std::vector<GEMHit> &gem1,
+                      const std::vector<GEMHit> &gem2) const;
+
 private:
     float matchSigma;
     float overlapSigma;

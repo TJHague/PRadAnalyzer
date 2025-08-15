@@ -69,68 +69,133 @@ bool operator <(const GEMHit &lhs, const GEMHit &rhs)
     return lhs.y < rhs.y;
 };
 
-std::vector<MatchHit> PRadDetMatch::Match(std::vector<HyCalHit> &hycal,
-                                          const std::vector<GEMHit> &gem1,
-                                          const std::vector<GEMHit> &gem2)
-const
+// Updated matching algorithm
+// GEM planes are prematched to avoid double counting due to the overlap region
+// The old prematch and postmatch functions are deprecated as keeping it in one function allows for substantial efficiency gains
+std::vector<MatchHit> PRadDetMatch::Match(std::vector<HyCalHit>& hycal,
+    const std::vector<GEMHit>& gem1,
+    const std::vector<GEMHit>& gem2)
 {
-    std::vector<MatchHit> result;
-    std::set<GEMHit> matched1, matched2;
-    std::vector<GEMHit> cand1, cand2;
+    std::vector<MatchHit> results;
+    // std::set<GEMHit> matched1, matched2;
+    // std::vector<GEMHit> cand1, cand2;
 
-    // sort in energy descendant order
-    std::sort(hycal.begin(), hycal.end(), [] (const HyCalHit &h1, const HyCalHit &h2)
-                                          {
-                                              return h2.E < h1.E;
-                                          });
+    // sort in energy descending order
+    std::sort(hycal.begin(), hycal.end(), [](const HyCalHit& h1, const HyCalHit& h2)
+        {
+            return h2.E < h1.E;
+        });
 
-    for(size_t i = 0; i < hycal.size(); ++i)
+    std::vector<GEMMatch> preMatchedGEMs = PreMatchGEMs(gem1, gem2);
+    std::vector<bool> GEMMatchMask(preMatchedGEMs.size(), false);
+    std::vector<std::tuple<GEMMatch, int, double>> GEMMatchDists; // GEMMatch, <index>, <distance>
+
+    for (const auto& h : hycal)
     {
-        const auto &hit = hycal.at(i);
+        GEMMatchDists.clear();
 
-        // clean up cand1 and cand2 first
-        cand1.clear();
-        cand2.clear();
-
-        // pre match, only check if distance is within the range
-        // fill in hits as candidates
-        for(auto &ghit : gem1)
+        // Old pre-matching logic
+        float range = h.sig_pos * matchSigma;
+        for (size_t i = 0; i < preMatchedGEMs.size(); i++)
         {
-            if(PreMatch(hit, ghit) && !is_in(matched1, ghit))
-                cand1.push_back(ghit);
+            if (GEMMatchMask[i]) continue;
+
+            const GEMMatch& match = preMatchedGEMs[i];
+            Point GEMs_At_HyCal = match.ProjectTo(h.z);
+            double dist = GEMs_At_HyCal.dist(Point(h.x, h.y, h.z));
+
+            if (dist < range) {
+                GEMMatchDists.emplace_back(match, i, dist);
+            }
         }
-        for(auto &ghit : gem2)
-        {
-            if(PreMatch(hit, ghit) && !is_in(matched2, ghit))
-                cand2.push_back(ghit);
+
+        // Post-matching logic
+        // Find GEMMatchDists entry with shortest distance
+        int best_index = -1;
+        double best_dist = 1e9;
+        for (int i = 0; i < GEMMatchDists.size(); i++) {
+            if (std::get<2>(GEMMatchDists[i]) < best_dist) {
+                best_dist = std::get<2>(GEMMatchDists[i]);
+                best_index = i;
+            }
         }
 
-        // no candidates
-        if(cand1.empty() && cand2.empty())
-            continue;
-
-        // create a new MatchHit
-        result.emplace_back(hit, std::move(cand1), std::move(cand2));
-        MatchHit &mhit = result.back();
-
-        // TODO remove it in PRadEventStruct.h
-        mhit.hycal_idx = i;
-
-        // find the matching status between HyCal and 2 GEMs
-        PostMatch(mhit);
-
-        // matched with gem1
-        if(TEST_BIT(mhit.mflag, kGEM1Match)) {
-            matched1.insert(mhit.gem1.front());
-        }
-        // matched with gem2
-        if(TEST_BIT(mhit.mflag, kGEM2Match)) {
-            matched2.insert(mhit.gem2.front());
+        // Create a matchhit object
+        // If there is no matching GEM, create with an empty GEMMatch
+        // If there is a matching GEM, create with the matched GEMs from all planes
+        if(best_index < 0) {
+            results.emplace_back(h, GEMMatch());
+        } else {
+            GEMMatchMask[std::get<1>(GEMMatchDists[best_index])] = true;
+            results.emplace_back(h, GEMMatch(std::get<0>(GEMMatchDists[best_index])));
         }
     }
 
-    return result;
+    return results;
 }
+
+// std::vector<MatchHit> PRadDetMatch::Match(std::vector<HyCalHit> &hycal,
+//                                           const std::vector<GEMHit> &gem1,
+//                                           const std::vector<GEMHit> &gem2)
+// const
+// {
+//     std::vector<MatchHit> result;
+//     std::set<GEMHit> matched1, matched2;
+//     std::vector<GEMHit> cand1, cand2;
+
+//     // sort in energy descendant order
+//     std::sort(hycal.begin(), hycal.end(), [] (const HyCalHit &h1, const HyCalHit &h2)
+//                                           {
+//                                               return h2.E < h1.E;
+//                                           });
+
+//     for(size_t i = 0; i < hycal.size(); ++i)
+//     {
+//         const auto &hit = hycal.at(i);
+
+//         // clean up cand1 and cand2 first
+//         cand1.clear();
+//         cand2.clear();
+
+//         // pre match, only check if distance is within the range
+//         // fill in hits as candidates
+//         for(auto &ghit : gem1)
+//         {
+//             if(PreMatch(hit, ghit) && !is_in(matched1, ghit))
+//                 cand1.push_back(ghit);
+//         }
+//         for(auto &ghit : gem2)
+//         {
+//             if(PreMatch(hit, ghit) && !is_in(matched2, ghit))
+//                 cand2.push_back(ghit);
+//         }
+
+//         // no candidates
+//         if(cand1.empty() && cand2.empty())
+//             continue;
+
+//         // create a new MatchHit
+//         result.emplace_back(hit, std::move(cand1), std::move(cand2));
+//         MatchHit &mhit = result.back();
+
+//         // TODO remove it in PRadEventStruct.h
+//         mhit.hycal_idx = i;
+
+//         // find the matching status between HyCal and 2 GEMs
+//         PostMatch(mhit);
+
+//         // matched with gem1
+//         if(TEST_BIT(mhit.mflag, kGEM1Match)) {
+//             matched1.insert(mhit.gem1.front());
+//         }
+//         // matched with gem2
+//         if(TEST_BIT(mhit.mflag, kGEM2Match)) {
+//             matched2.insert(mhit.gem2.front());
+//         }
+//     }
+
+//     return result;
+// }
 
 // project 1 HyCal cluster and 1 GEM cluster to HyCal Plane.
 // if they are at the same z, there will be no projection, otherwise they are
@@ -217,4 +282,49 @@ const
         h.gem = h.gem2.front();
         h.SubstituteCoord(h.gem2.front());
     }
+}
+
+std::vector<GEMMatch> PRadDetMatch::PreMatchGEMs(const std::vector<GEMHit>& gems1, const std::vector<GEMHit>& gems2) {
+    // If a gem is matched, set to true
+    std::vector<bool> matchMask1(gems1.size(), false);
+    std::vector<bool> matchMask2(gems2.size(), false);
+    std::vector<GEMMatch> matchedGEMs;
+
+    for(int i=0; i<gems1.size(); i++) {
+        if(matchMask1[i]) continue;
+        const GEMHit& g1 = gems1[i];
+        // if(abs(GEM1_Layer1_Z - g1.z) > 1) continue; // Start with the first layer, get the second layer in loop 2
+        // Check that it is in the first layer of the GEM
+
+        // Storing best match details
+        double best_dist = 1e9;
+        int best_index = -1;
+
+        for(int j=0; j<gems2.size(); j++) {
+            if(matchMask2[j]) continue;
+            const GEMHit& g2 = gems2[j];
+            // if(abs(GEM1_Layer2_Z - g2.z) > 1) continue; // Check that it is in the second layer of the GEM
+
+            // Implement the matching logic here
+            double dist = PRadCoordSystem::ProjectionDistance(g1, g2, PRadCoordSystem::target(), g1.z);
+            if(dist < matchSigma * g2.sig_pos && dist < best_dist) {
+                best_dist = dist;
+                best_index = j;
+            }
+        }
+
+        if(best_index != -1) {
+            matchMask1[i] = true;
+            matchMask2[best_index] = true;
+
+            // Create a matched GEM
+            matchedGEMs.emplace_back(gems1[i], gems2[best_index]);
+        }
+        else {
+            // Create a matched GEM with only one hit
+            matchedGEMs.emplace_back(gems1[i]);
+        }
+    }
+
+    return matchedGEMs;
 }
