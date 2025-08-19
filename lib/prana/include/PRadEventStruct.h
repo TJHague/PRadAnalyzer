@@ -660,43 +660,7 @@ enum MatchHitStatus
     kGEM2Match,         // found a matched GEM hit on PRadGEM2
 };
 
-class MatchHit : public BaseHit
-{
-public:
-    HyCalHit hycal;
-    GEMMatch gems;
-    GEMHit gem;
-    std::vector<GEMHit> gem1;
-    std::vector<GEMHit> gem2;
-    uint32_t mflag;
-    // this index is kept because of example/physCalib is using it
-    // TODO revamp physCalib and remove this member
-    uint32_t hycal_idx;
-
-    MatchHit(const HyCalHit& hit, const GEMMatch& gem)
-        : hycal(hit), gems(gem), mflag(gems.GetNGEMHits() > 0 ? 1 : 0), hycal_idx(0)
-    {}
-
-    MatchHit(const HyCalHit &hit)
-    : BaseHit(hit.x, hit.y, hit.z, hit.E), hycal(hit), mflag(0)
-    {}
-
-    MatchHit(const HyCalHit &hit, std::vector<GEMHit> &&v1, std::vector<GEMHit> &&v2)
-    : BaseHit(hit.x, hit.y, hit.z, hit.E), hycal(hit), gem1(v1), gem2(v2), mflag(0)
-    {}
-
-    MatchHit(const HyCalHit &hit, const std::vector<GEMHit> &v1, const std::vector<GEMHit> &v2)
-    : BaseHit(hit.x, hit.y, hit.z, hit.E), hycal(hit), gem1(v1), gem2(v2), mflag(0)
-    {}
-
-    void SubstituteCoord(const BaseHit &h)
-    {
-        x = h.x;
-        y = h.y;
-        z = h.z;
-    }
-};
-
+// New class for prematching GEMs to prevent overcounting in overlap region
 class GEMMatch : public BaseHit
 {
 private:
@@ -749,6 +713,43 @@ public:
         double x_proj = dxdz * z + bx;
         double y_proj = dydz * z + by;
         return Point(x_proj, y_proj, z);
+    }
+};
+
+class MatchHit : public BaseHit
+{
+public:
+    HyCalHit hycal;
+    GEMMatch gems;
+    GEMHit gem;
+    std::vector<GEMHit> gem1;
+    std::vector<GEMHit> gem2;
+    uint32_t mflag;
+    // this index is kept because of example/physCalib is using it
+    // TODO revamp physCalib and remove this member
+    uint32_t hycal_idx;
+
+    MatchHit(const HyCalHit& hit, const GEMMatch& gem)
+        : hycal(hit), gems(gem), mflag(gems.GetNGEMHits() > 0 ? 1 : 0), hycal_idx(0)
+    {}
+
+    MatchHit(const HyCalHit &hit)
+    : BaseHit(hit.x, hit.y, hit.z, hit.E), hycal(hit), mflag(0)
+    {}
+
+    MatchHit(const HyCalHit &hit, std::vector<GEMHit> &&v1, std::vector<GEMHit> &&v2)
+    : BaseHit(hit.x, hit.y, hit.z, hit.E), hycal(hit), gem1(v1), gem2(v2), mflag(0)
+    {}
+
+    MatchHit(const HyCalHit &hit, const std::vector<GEMHit> &v1, const std::vector<GEMHit> &v2)
+    : BaseHit(hit.x, hit.y, hit.z, hit.E), hycal(hit), gem1(v1), gem2(v2), mflag(0)
+    {}
+
+    void SubstituteCoord(const BaseHit &h)
+    {
+        x = h.x;
+        y = h.y;
+        z = h.z;
     }
 };
 
