@@ -74,7 +74,7 @@ bool operator <(const GEMHit &lhs, const GEMHit &rhs)
 // The old prematch and postmatch functions are deprecated as keeping it in one function allows for substantial efficiency gains
 std::vector<MatchHit> PRadDetMatch::Match(std::vector<HyCalHit>& hycal,
     const std::vector<GEMHit>& gem1,
-    const std::vector<GEMHit>& gem2)
+    const std::vector<GEMHit>& gem2) const
 {
     std::vector<MatchHit> results;
     // std::set<GEMHit> matched1, matched2;
