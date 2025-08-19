@@ -692,6 +692,8 @@ public:
     : BaseHit(g2.x, g2.y, g2.z, 0), gem_hit1(g1), gem_hit2(g2), gem_hit3(g3), gem_hit4(g4)
     {}
 
+    int GetNGEMHits() const { return nGEMHits; }
+
     Point ProjectTo(double z) const {
         // Find best fit line through all hits using least squares
         double sum_xz = 0, sum_yz = 0, sum_x=0, sum_y=0, sum_z=0, sum_x2=0, sum_y2=0;
