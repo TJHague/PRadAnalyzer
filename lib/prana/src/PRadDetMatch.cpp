@@ -284,7 +284,7 @@ const
     }
 }
 
-std::vector<GEMMatch> PRadDetMatch::PreMatchGEMs(const std::vector<GEMHit>& gems1, const std::vector<GEMHit>& gems2) {
+std::vector<GEMMatch> PRadDetMatch::PreMatchGEMs(const std::vector<GEMHit>& gems1, const std::vector<GEMHit>& gems2) const {
     // If a gem is matched, set to true
     std::vector<bool> matchMask1(gems1.size(), false);
     std::vector<bool> matchMask2(gems2.size(), false);

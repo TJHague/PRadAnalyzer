@@ -12,6 +12,8 @@
 #include "datastruct.h"
 #include "PRadCoordSystem.h"
 
+typedef Point3D<float> Point;
+
 // some discriminator related settings
 #define REF_CHANNEL 7
 #define REF_PULSER_FREQ 500000

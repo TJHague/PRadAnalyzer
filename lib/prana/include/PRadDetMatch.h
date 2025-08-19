@@ -30,7 +30,7 @@ public:
     //   in the GEM overlap region. E. Wrightson wrote an 
     //   algorithm that fixes this during analysis of sims.
     //   Merging into PRadAnalyzer - T.J. Hague Oct. 2024
-    void PreMatchGEMs(const std::vector<GEMHit> &gem1,
+    std::vector<GEMMatch> PreMatchGEMs(const std::vector<GEMHit> &gem1,
                       const std::vector<GEMHit> &gem2) const;
 
 private:
